@@ -1,0 +1,129 @@
+version: "3.7"
+
+services:
+  ssh:
+    image: viettu123/sshserver
+    ports:
+      - 2222:22
+    environment:
+      sshuser_FILE: /run/secrets/sshuser
+      password_FILE: /run/secrets/sshpassword
+    volumes:
+      - /home/data1:/data/
+    secrets:
+      - sshuser
+      - sshpassword
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role==manager
+
+  samba:
+    image: viettu123/samba
+    ports:
+      - 139:139
+      - 445:445
+    environment:
+      smbuser_FILE: /run/secrets/smbuser
+      password_FILE: /run/secrets/smbpassword
+    volumes:
+      - /home/data/:/data/
+    secrets:
+      - smbuser
+      - smbpassword
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role==manager
+
+  service1:
+    image: viettu123/swarm-test:php
+    networks:
+      - net1
+    volumes:
+      - vol1:/d1/
+      - vol2:/d2/
+      - vol3:/d3/
+    ports:
+      - 8085:8085
+    deploy:
+      replicas: 4
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 150M
+        reservations:
+          cpus: "0.25"
+          memory: 50M
+      restart_policy:
+        condition: on-failure
+    secrets:
+      - smbuser
+      - smbpassword
+
+  service2:
+    image: viettu123/swarm-test:dotnet
+    networks:
+      - net2
+    volumes:
+      - vol1:/d1/
+      - vol2:/d2/
+      - vol3:/d3/
+    ports:
+      - 80:80
+    deploy:
+      replicas: 4
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 150M
+        reservations:
+          cpus: "0.25"
+          memory: 50M
+      restart_policy:
+        condition: on-failure
+    secrets:
+      - smbuser
+      - smbpassword
+
+networks:
+  net1:
+    driver: overlay
+  net2:
+    driver: overlay
+    name: www-net2
+
+volumes:
+  vol1:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/
+      o: bind
+  vol2:
+    driver: local
+    name: v2
+    driver_opts:
+      type: cifs
+      device: //192.168.72.203/data
+      o: username=${SMB_USER},password=${SMB_PASSWORD},file_mode=0777,dir_mode=0777
+  vol3:
+    driver: vieux/sshfs
+    name: v3
+    driver_opts:
+      sshcmd: "sshuser@192.168.72.203:/data/"
+      port: 2222
+      password: 1234567
+      allow_other: ""
+
+secrets:
+  sshuser:
+    file: /etc/docker/secrets/sshuser
+  sshpassword:
+    file: /etc/docker/secrets/sshpassword
+  smbuser:
+    file: /etc/docker/secrets/smbuser
+  smbpassword:
+    file: /etc/docker/secrets/smbpassword

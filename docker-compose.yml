@@ -1,0 +1,81 @@
+version: "3.7"
+
+services:
+  samba:
+    image: viettu123/samba
+    ports:
+      - 139:139
+      - 445:445
+    environment:
+      smbuser: smbuser
+      password: 1234567
+    volumes:
+      - /home/data/:/data/
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role==manager
+
+  service1:
+    image: viettu123/swarm-test:php
+    networks:
+      - net1
+    volumes:
+      - vol1:/d1/
+      - vol2:/d2/
+    ports:
+      - 8085:8085
+    deploy:
+      replicas: 4
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 150M
+        reservations:
+          cpus: "0.25"
+          memory: 50M
+      restart_policy:
+        condition: on-failure
+  service2:
+    image: viettu123/swarm-test:dotnet
+    networks:
+      - net2
+    volumes:
+      - vol1:/d1/
+      - vol2:/d2/
+    ports:
+      - 80:80
+    deploy:
+      replicas: 4
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 150M
+        reservations:
+          cpus: "0.25"
+          memory: 50M
+      restart_policy:
+        condition: on-failure
+
+networks:
+  net1:
+    driver: overlay # Explicitly specify the driver
+  net2:
+    driver: overlay
+    name: www-net2
+
+volumes:
+  vol1:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/
+      o: bind
+  vol2:
+    driver: local
+    name: v2
+    driver_opts:
+      type: cifs
+      device: //192.168.72.203/data
+      o: username=smbuser,password=1234567,file_mode=0777,dir_mode=0777
